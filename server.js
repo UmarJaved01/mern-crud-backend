@@ -4,7 +4,7 @@ const cors = require('cors')
 const dotenv = require('dotenv')
 const personRoutes = require('./routes/personRoutes')
 
-// Load environment variables
+// Load environment variables from .env file (if present locally)
 dotenv.config()
 
 const app = express()
@@ -12,41 +12,33 @@ const app = express()
 // Middleware
 app.use(express.json())
 
-// Determine the environment (local or production)
-const isLocal = process.env.NODE_ENV === 'development'
-
-// CORS configuration based on environment
-const corsOptions = {
+// CORS configuration to allow the frontend domain
+app.use(cors({
+  origin: ['https://merncrudfrontend.z23.web.core.windows.net','http://localhost:5173'], // Your frontend Storage Account URL (updated)
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false
-}
-
-if (isLocal) {
-  // Local development: Allow localhost and any other testing origins
-  corsOptions.origin = ['http://localhost:5173', 'https://merncrudfrontend.z23.web.core.windows.net']
-  console.log('Running in development mode - CORS allows localhost and Azure frontend')
-} else {
-  // Production (Azure): Allow only the Azure frontend
-  corsOptions.origin = process.env.FRONTEND_URL || 'https://merncrudfrontend.z23.web.core.windows.net'
-  console.log('Running in production mode - CORS allows:', corsOptions.origin)
-}
-
-app.use(cors(corsOptions))
+  allowedHeaders: ['Content-Type', 'Authorization'], // Include headers as needed
+  credentials: false // Set to true if sending cookies or auth tokens
+}))
 
 // MongoDB connection
-mongoose.connect(process.env.MONGO_URI, {
+const mongoUri = process.env.MONGO_URI;
+mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.error('MongoDB connection error:', err.message))
+  .then(() => console.log('MongoDB connected successfully'))
+  .catch(err => console.error('MongoDB connection error:', err.message));
 
 // Routes
 app.use('/api/persons', personRoutes)
 
+// Health check endpoint (for debugging)
+app.get('/health', (req, res) => {
+  res.json({ status: 'Backend is running', mongoConnected: mongoose.connection.readyState === 1 });
+});
+
 // Start server
-const PORT = process.env.PORT || 5000
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`)
-})
+  console.log(`Server running on port ${PORT}`);
+});
