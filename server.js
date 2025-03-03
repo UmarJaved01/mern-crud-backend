@@ -12,9 +12,9 @@ const app = express()
 // Middleware
 app.use(express.json())
 
-// CORS configuration for Azure
+// CORS configuration to allow the frontend domain
 app.use(cors({
-  origin: 'https://merncrudfrontend.z23.web.core.windows.net/', // Your frontend Storage Account URL
+  origin: 'https://merncrudfrontend.z23.web.core.windows.net', // Your frontend Storage Account URL (updated)
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'], // Include headers as needed
   credentials: false // Set to true if sending cookies or auth tokens
