@@ -14,13 +14,10 @@ app.use(express.json())
 
 // CORS configuration for Azure
 app.use(cors({
-  origin: [
-    'https://merncrudfrontend.z23.web.core.windows.net/', // Your frontend Storage Account URL
-    'http://localhost:5173' // For local development
-  ],
+  origin: 'https://merncrudfrontend.z23.web.core.windows.net/', // Your frontend Storage Account URL
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false
+  allowedHeaders: ['Content-Type', 'Authorization'], // Include headers as needed
+  credentials: false // Set to true if sending cookies or auth tokens
 }))
 
 // MongoDB connection
