@@ -11,16 +11,30 @@ dotenv.config();
 const app = express();
 
 // Redis connection (using Azure Cache for Redis)
-const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
 let redisClient;
 
 try {
-  if (redisConnectionString) {
-    console.log('Redis connection string from env:', redisConnectionString);
-    redisClient = new Redis(redisConnectionString);
-  } else {
-    throw new Error('REDIS_CONNECTION_STRING is not set in environment variables');
+  const redisHost = process.env.REDIS_HOST;
+  const redisPort = process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT) : 6379;
+  const redisPassword = process.env.REDIS_PASSWORD;
+  const redisTls = process.env.REDIS_TLS === 'true';
+
+  if (!redisHost) {
+    throw new Error('REDIS_HOST is not set in environment variables');
   }
+
+  console.log('Attempting to connect to Redis with config:', {
+    host: redisHost,
+    port: redisPort,
+    tls: redisTls
+  });
+
+  redisClient = new Redis({
+    host: redisHost,
+    port: redisPort,
+    password: redisPassword,
+    tls: redisTls ? {} : undefined // Enable TLS if REDIS_TLS is true
+  });
 
   redisClient.on('connect', () => {
     console.log('Redis connected successfully');
@@ -48,10 +62,7 @@ app.use(cors({
 
 // MongoDB connection
 const mongoUri = process.env.MONGO_URI;
-mongoose.connect(mongoUri, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
+mongoose.connect(mongoUri)
   .then(() => console.log('MongoDB connected successfully'))
   .catch(err => console.error('MongoDB connection error:', err.message));
 
@@ -74,4 +85,4 @@ app.get('/health', (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-}); 
+});
