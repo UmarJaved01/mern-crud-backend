@@ -56,26 +56,29 @@ try {
 // Middleware
 app.use(express.json());
 
-// CORS configuration
-app.use(cors({
-  origin: [
-    'http://localhost:5173', // Local development
-    'https://merncrudfrontend.z23.web.core.windows.net', // Production frontend
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Include OPTIONS for preflight requests
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false,
-}));
-
-// Handle preflight OPTIONS requests
-app.options('*', cors({
-  origin: [
-    'https://merncrudfrontend.z23.web.core.windows.net',
-  ],
+// CORS configuration with credentials
+const corsOptions = {
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'https://merncrudfrontend.z23.web.core.windows.net',
+    ];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-}));
+  credentials: true, // Allow credentials (cookies)
+  optionsSuccessStatus: 200, // Some legacy browsers (IE) choke on 204
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight OPTIONS requests explicitly
+app.options('*', cors(corsOptions));
 
 // MongoDB connection
 const mongoUri = process.env.MONGO_URI;
