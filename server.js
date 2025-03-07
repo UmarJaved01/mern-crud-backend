@@ -68,7 +68,14 @@ app.use(cors({
 }));
 
 // Handle preflight OPTIONS requests
-app.options('*', cors()); // Respond to all OPTIONS requests with CORS headers
+app.options('*', cors({
+  origin: [
+    'https://merncrudfrontend.z23.web.core.windows.net',
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+}));
 
 // MongoDB connection
 const mongoUri = process.env.MONGO_URI;
