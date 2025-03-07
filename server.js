@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -8,19 +7,15 @@ const Redis = require('ioredis');
 // Load environment variables from .env file
 dotenv.config();
 
-// Debug: Log the path of the .env file and loaded environment variables
-console.log('Dotenv config loaded:', dotenv.config());
+// Debug: Log the loaded environment variables
 console.log('Loaded environment variables:', {
   PORT: process.env.PORT,
   MONGO_URI: process.env.MONGO_URI,
   JWT_SECRET: process.env.JWT_SECRET,
   REDIS_HOST: process.env.REDIS_HOST,
   REDIS_PORT: process.env.REDIS_PORT,
+  REDIS_TLS: process.env.REDIS_TLS,
 });
-
-// Require routes after dotenv config
-const personRoutes = require('./routes/personRoutes');
-const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
@@ -63,17 +58,27 @@ app.use(express.json());
 
 // CORS configuration
 app.use(cors({
-  origin: ['https://merncrudfrontend.z23.web.core.windows.net'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin: [
+    'http://localhost:5173', // Local development
+    'https://merncrudfrontend.z23.web.core.windows.net', // Production frontend
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Include OPTIONS for preflight requests
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: false,
 }));
+
+// Handle preflight OPTIONS requests
+app.options('*', cors()); // Respond to all OPTIONS requests with CORS headers
 
 // MongoDB connection
 const mongoUri = process.env.MONGO_URI;
 mongoose.connect(mongoUri)
   .then(() => console.log('MongoDB connected successfully'))
   .catch(err => console.error('MongoDB connection error:', err.message));
+
+// Require routes after dotenv config
+const personRoutes = require('./routes/personRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 // Pass Redis client to routes
 app.use('/api/persons', (req, res, next) => {
