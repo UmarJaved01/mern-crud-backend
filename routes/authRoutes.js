@@ -3,8 +3,8 @@ const router = express.Router();
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { v4: uuidv4 } = require('uuid'); // For generating unique refresh tokens
-const cookieParser = require('cookie-parser'); // For parsing cookies
+const { v4: uuidv4 } = require('uuid');
+const cookieParser = require('cookie-parser');
 
 // Middleware
 router.use(cookieParser());
@@ -14,60 +14,99 @@ console.log('JWT_SECRET in authRoutes:', process.env.JWT_SECRET);
 
 // Ensure JWT_SECRET is defined
 const JWT_SECRET = process.env.JWT_SECRET || 'temporary-fallback-for-debugging';
-
-// Check if JWT_SECRET is properly defined
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'undefined') {
   console.warn('WARNING: JWT_SECRET is not defined in environment variables or is invalid. Using a fallback for debugging.');
 }
 
 // Generate Access Token
 const generateAccessToken = (userId) => {
-  return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '15m' }); // Short-lived access token (15 minutes)
+  try {
+    if (!userId) throw new Error('User ID is undefined');
+    return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '15m' });
+  } catch (error) {
+    console.error('Error generating access token:', error);
+    throw new Error('Failed to generate access token');
+  }
 };
 
 // Generate Refresh Token
 const generateRefreshToken = () => {
-  return uuidv4(); // Generate a unique refresh token
+  try {
+    return uuidv4();
+  } catch (error) {
+    console.error('Error generating refresh token:', error);
+    throw new Error('Failed to generate refresh token');
+  }
 };
 
 // Signup Route
 router.post('/signup', async (req, res) => {
   const { email, username, password, confirmPassword } = req.body;
 
+  console.log('Signup request body:', req.body);
+
+  // Input validation
+  if (!email || !username || !password || !confirmPassword) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
   if (password !== confirmPassword) {
     return res.status(400).json({ message: 'Passwords do not match' });
   }
 
   try {
+    // Check for existing user
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
+      console.log('Existing user found:', existingUser);
       return res.status(400).json({ message: 'Email or username already exists' });
     }
 
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
+    console.log('Password hashed successfully');
+
+    // Save user to MongoDB
     const user = new User({ email, username, password: hashedPassword });
     await user.save();
+    console.log('User saved to MongoDB:', user._id);
 
+    // Generate tokens
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken();
+    console.log('Tokens generated:', { accessToken, refreshToken });
 
-    // Store the refresh token in Redis with a longer expiry (e.g., 7 days)
+    // Store tokens in Redis (optional)
     if (req.redisClient) {
-      await req.redisClient.set(`refreshToken:${user._id}`, refreshToken, 'EX', 7 * 24 * 60 * 60); // 7 days
-      await req.redisClient.set(`accessToken:${user._id}`, accessToken, 'EX', 15 * 60); // 15 minutes
+      try {
+        await req.redisClient.set(`refreshToken:${user._id}`, refreshToken, 'EX', 7 * 24 * 60 * 60); // 7 days
+        await req.redisClient.set(`accessToken:${user._id}`, accessToken, 'EX', 15 * 60); // 15 minutes
+        console.log('Tokens stored in Redis');
+      } catch (redisError) {
+        console.error('Redis error during signup:', redisError);
+        // Continue without Redis
+      }
+    } else {
+      console.warn('Redis client is not available');
     }
 
     // Set the refresh token as an HttpOnly cookie
+    if (typeof res.cookie !== 'function') {
+      console.error('res.cookie is not a function - ensure cookie-parser middleware is applied');
+      throw new Error('Cookie parser middleware not applied');
+    }
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Use secure in production
-      sameSite: 'strict', // Prevent CSRF
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
+    console.log('Refresh token cookie set');
 
     res.status(201).json({ message: 'User created', accessToken });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    console.error('Signup error:', error.message, error.stack);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
